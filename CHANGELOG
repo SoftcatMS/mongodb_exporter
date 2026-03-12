@@ -1,3 +1,9 @@
+Release 0.37.0
+
+- Added graceful shutdown on SIGTERM/SIGINT with HTTP server shutdown
+- Added GHCR build/push workflow for branch tags
+- Documented GHCR image, secret file option, and local env var usage
+
 Release 0.36.0
 
 - Added security metrics with info about encryption

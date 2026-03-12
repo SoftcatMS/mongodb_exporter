@@ -20,10 +20,11 @@ package exporter
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
-	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -332,7 +333,7 @@ func (e *Exporter) Handler() http.Handler {
 }
 
 // Run starts the exporter.
-func (e *Exporter) Run() {
+func (e *Exporter) Run(ctx context.Context) error {
 	mux := http.DefaultServeMux
 	mux.Handle(e.path, e.Handler())
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -351,9 +352,36 @@ func (e *Exporter) Run() {
 		Handler: mux,
 	}
 
-	if err := web.ListenAndServe(server, e.opts.TLSConfigPath, promlog.New(&promlog.Config{})); err != nil {
-		e.logger.Errorf("error starting server: %v", err)
-		os.Exit(1)
+	listenAddress := e.webListenAddress
+	if host, port, err := net.SplitHostPort(listenAddress); err == nil && host == "" {
+		listenAddress = net.JoinHostPort("0.0.0.0", port)
+	}
+
+	e.logger.Infof("Starting HTTP server on %s", listenAddress)
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- web.ListenAndServe(server, e.opts.TLSConfigPath, promlog.New(&promlog.Config{}))
+	}()
+
+	select {
+	case <-ctx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			e.logger.Errorf("error shutting down server: %v", err)
+			return err
+		}
+		if err := <-errCh; err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
+		return nil
+	case err := <-errCh:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			e.logger.Errorf("error starting server: %v", err)
+			return err
+		}
+		return nil
 	}
 }
 

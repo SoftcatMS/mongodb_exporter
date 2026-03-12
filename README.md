@@ -42,17 +42,24 @@ Just run `make release` and the new binaries will be generated under the build d
 If you built the exporter using the method mentioned in the previous section, the generated binaries are in `mongodb_exporter_linux_amd64/mongodb_exporter` or `mongodb_exporter_darwin_amd64/mongodb_exporter`
 
 #### Docker
-A docker image is available on the [official percona repository](https://hub.docker.com/r/percona/mongodb_exporter).
+A docker image is available on the [official percona repository](https://hub.docker.com/r/percona/mongodb_exporter) and on GHCR as `ghcr.io/percona/mongodb_exporter`.
 
 ##### Examples
 
 ```sh
 # with podman
-podman run -d -p 9216:9216 -p 17001:17001 percona/mongodb_exporter:0.20 --mongodb.uri=mongodb://127.0.0.1:17001
+podman run -d -p 9216:9216 -p 17001:17001 ghcr.io/percona/mongodb_exporter:0.20 --mongodb.uri=mongodb://127.0.0.1:17001
 
 # with docker
-docker run -d -p 9216:9216 -p 17001:17001 percona/mongodb_exporter:0.20 --mongodb.uri=mongodb://127.0.0.1:17001
+docker run -d -p 9216:9216 -p 17001:17001 ghcr.io/percona/mongodb_exporter:0.20 --mongodb.uri=mongodb://127.0.0.1:17001
 ```
+You can also set `MONGODB_URI` locally to avoid passing `--mongodb.uri` every time.
+
+#### Kubernetes secrets
+If you store the MongoDB URI as a Kubernetes secret, mount it into the container and point the exporter at the file:
+
+- Secret key: `MONGODB_URI` (contains the full MongoDB URI).
+- Flag: `--mongodb.uri-path=/run/secrets/MONGODB_URI`.
 
 #### Permissions
 Connecting user should have sufficient rights to query needed stats:

@@ -17,9 +17,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/alecthomas/kong"
 	"github.com/sirupsen/logrus"
@@ -87,8 +90,13 @@ func main() {
 		return
 	}
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	e := buildExporter(opts)
-	e.Run()
+	if err := e.Run(ctx); err != nil {
+		os.Exit(1)
+	}
 }
 
 func buildExporter(opts GlobalFlags) *exporter.Exporter {
