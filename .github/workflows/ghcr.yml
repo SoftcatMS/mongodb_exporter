@@ -1,0 +1,48 @@
+name: GHCR
+
+on:
+  push:
+    branches:
+      - "**"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve image tags
+        id: tags
+        run: |
+          IMAGE_NAME="ghcr.io/${GITHUB_REPOSITORY,,}"
+          VERSION="$(cat VERSION)"
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            TAGS="${IMAGE_NAME}:${VERSION},${IMAGE_NAME}:latest"
+          else
+            SHORT_SHA="${GITHUB_SHA::7}"
+            TAGS="${IMAGE_NAME}:${SHORT_SHA}"
+          fi
+          echo "tags=${TAGS}" >> "${GITHUB_OUTPUT}"
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
